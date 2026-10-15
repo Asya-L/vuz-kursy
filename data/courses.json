@@ -7,7 +7,8 @@
   "theme": "navy",
   "short": "ИСОУ",
   "ready": true,
-  "sections": 8
+  "lectures": 8,
+  "labs": 8
  },
  {
   "id": "ml",
@@ -18,7 +19,8 @@
   "theme": "botanic",
   "short": "Алгоритмы МО",
   "ready": true,
-  "sections": 6
+  "lectures": 6,
+  "labs": 0
  },
  {
   "id": "urapo",
@@ -29,7 +31,8 @@
   "theme": "vintage",
   "short": "УРиАПО",
   "ready": true,
-  "sections": 6
+  "lectures": 5,
+  "labs": 6
  },
  {
   "id": "sbad",
@@ -40,6 +43,7 @@
   "theme": "blush",
   "short": "Сбор и анализ данных",
   "ready": true,
-  "sections": 4
+  "lectures": 3,
+  "labs": 4
  }
 ]
