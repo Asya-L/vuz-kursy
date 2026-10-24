@@ -293,3 +293,30 @@ code, pre, kbd { font-variant-ligatures: none; font-feature-settings: "calt" 0, 
 .dlg-actions button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
 .footnote a { color: var(--ink); }
 @media print { .teacher-bar, .toast { display: none !important; } }
+
+/* Формулы (KaTeX) */
+.math-display { overflow-x: auto; overflow-y: hidden; margin: 6px 0 16px; padding: 2px 0; }
+.math-display .katex-display { margin: 0; }
+.reading .katex { font-size: 1.08em; }
+.reading h4 { font-size: 17px; margin: 26px 0 8px; }
+.reading figure { margin: 14px 0 26px; }
+.reading figcaption { font-size: 14.5px; line-height: 1.5; max-width: 74ch; }
+.callout .math-display { margin: 4px 0 12px; }
+.slide .math-display { margin: .4cqw 0 1.2cqw; overflow: visible; }
+.slide .katex { font-size: 1.1em; }
+.slide .math-display .katex { font-size: 1.18em; }
+
+/* Слайды с картинкой */
+.slide.fig .slide-body { display: grid; grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.25fr); column-gap: 3cqw; align-content: start; }
+.slide.fig .slide-body > * { grid-column: 1; }
+.slide.fig .slide-body > figure { grid-column: 2; grid-row: 1 / span 8; align-self: center; }
+.slide.fig .slide-body > figure svg { max-height: 36cqw; }
+.slide.fig ul { font-size: .88em; }
+.slide.fig blockquote { margin-top: .6cqw; font-size: .88em; }
+.slide.wide .slide-body { display: flex; flex-direction: column; justify-content: center; gap: 1.2cqw; }
+.slide.wide .slide-body > figure svg { max-height: 31cqw; width: 100%; }
+.slide.wide blockquote { margin: 0; font-size: .85em; }
+.slide.formula ul { font-size: .86em; margin-top: .4cqw; }
+.slide.formula li { margin-bottom: .6cqw; }
+.slide.formula p { margin-bottom: .2cqw; }
+.slide table .katex { font-size: 1em; }
