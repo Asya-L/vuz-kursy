@@ -61,7 +61,7 @@
   async function openAsTeacher(id, tpw) {
     const t = await decryptPw(await getJSON(`data/${id}/teacher.json`), tpw);
     const index = await decryptPw(await getJSON(`data/${id}/index.json`), t.studentPassword);
-    const open = await getJSON(`data/${id}/open.json`).catch(() => ({}));
+    const open = (await fetchOpenFromRepo(id)) || (await getJSON(`data/${id}/open.json`).catch(() => ({})));
     const st = { index, keys: t.keys, ck: t.ck, open: new Set(Object.keys(open).filter((k) => t.keys[k])), content: {}, teacher: true, studentPassword: t.studentPassword };
     state[id] = st;
     return st;
@@ -107,7 +107,8 @@
     let t = document.getElementById("toast");
     if (!t) { t = document.createElement("div"); t.id = "toast"; t.setAttribute("role", "status"); document.body.appendChild(t); }
     t.className = "toast " + kind; t.textContent = msg; t.hidden = false;
-    clearTimeout(t._h); t._h = setTimeout(() => (t.hidden = true), kind === "err" ? 9000 : 5000);
+    clearTimeout(t._h); t._h = setTimeout(() => (t.hidden = true), kind === "err" ? 20000 : 5000);
+    t.onclick = () => (t.hidden = true);
   }
   function showGitHubDialog(after) {
     const d = document.createElement("dialog");
@@ -152,21 +153,47 @@
     };
     inp.focus();
   }
-  async function saveOpen(courseId, st) {
+  // Понятные причины отказа GitHub
+  function ghError(status, msg) {
+    const m = (msg || "").toLowerCase();
+    if (status === 401) { ls.del("gh-token"); return "Токен GitHub больше не действует (истёк или удалён). Создайте новый и подключите GitHub заново."; }
+    if (status === 403 && /personal access token|not accessible|permission/.test(m))
+      return "У токена нет права записи. Откройте github.com → Settings → Developer settings → Personal access tokens → Fine-grained tokens, выберите токен, нажмите Edit и в Repository permissions поставьте Contents: Read and write. Сам токен менять не нужно.";
+    if (status === 403) return `GitHub запретил запись (403): ${msg || "нет доступа"}. Проверьте, что у токена Contents: Read and write.`;
+    if (status === 404) return "Токен не видит репозиторий. В настройках токена в Repository access выберите репозиторий vuz-kursy.";
+    if (status === 409 || status === 422) return "Файл на GitHub только что изменился. Нажмите кнопку ещё раз.";
+    return `GitHub не сохранил изменение (ошибка ${status}${msg ? ": " + msg : ""}). Попробуйте ещё раз.`;
+  }
+  const ghHeaders = (tok) => ({ Authorization: `Bearer ${tok}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" });
+  const openPath = (courseId) => `${site.root ? site.root + "/" : ""}data/${courseId}/open.json`;
+  // Свежее состояние прямо из репозитория (сайт обновляется с задержкой 1–2 минуты)
+  async function fetchOpenFromRepo(courseId) {
+    const tok = ls.get("gh-token");
+    if (!tok || !site.repo) return null;
+    try {
+      const r = await fetch(`https://api.github.com/repos/${site.repo}/contents/${openPath(courseId)}?ref=${site.branch || "main"}`,
+        { headers: { ...ghHeaders(tok), Accept: "application/vnd.github.raw+json" }, cache: "no-store" });
+      return r.ok ? await r.json() : null;
+    } catch { return null; }
+  }
+  async function saveOpen(courseId, st, retry = true) {
     const tok = ls.get("gh-token");
     if (!tok) throw new Error("Подключите GitHub, чтобы сохранять изменения.");
     const open = {};
     for (const iid of st.open) open[iid] = await encryptRaw(unb64(st.keys[iid]), st.ck);
-    const path = `${site.root ? site.root + "/" : ""}data/${courseId}/open.json`;
-    const api = `https://api.github.com/repos/${site.repo}/contents/${path}`;
-    const headers = { Authorization: `Bearer ${tok}`, Accept: "application/vnd.github+json" };
-    const cur = await fetch(`${api}?ref=${site.branch || "main"}`, { headers, cache: "no-store" });
+    const api = `https://api.github.com/repos/${site.repo}/contents/${openPath(courseId)}`;
+    let cur;
+    try { cur = await fetch(`${api}?ref=${site.branch || "main"}`, { headers: ghHeaders(tok), cache: "no-store" }); }
+    catch { throw new Error("Нет связи с GitHub. Проверьте интернет и попробуйте ещё раз."); }
+    if (!cur.ok && cur.status !== 404) { let m = ""; try { m = (await cur.json()).message; } catch {} throw new Error(ghError(cur.status, m)); }
     const sha = cur.ok ? (await cur.json()).sha : undefined;
     const body = { message: `Открытые разделы: ${courseId}`, content: btoa(JSON.stringify(open)), branch: site.branch || "main", ...(sha ? { sha } : {}) };
-    const r = await fetch(api, { method: "PUT", headers, body: JSON.stringify(body) });
+    const r = await fetch(api, { method: "PUT", headers: ghHeaders(tok), body: JSON.stringify(body) });
     if (!r.ok) {
-      if (r.status === 401) { ls.del("gh-token"); throw new Error("Токен GitHub больше не действует. Подключите GitHub заново."); }
-      throw new Error(`GitHub не сохранил изменение (ошибка ${r.status}). Попробуйте ещё раз.`);
+      let m = ""; try { m = (await r.json()).message; } catch {}
+      if ((r.status === 409 || r.status === 422) && retry) return saveOpen(courseId, st, false);
+      console.error("GitHub:", r.status, m);
+      throw new Error(ghError(r.status, m));
     }
     return true;
   }
